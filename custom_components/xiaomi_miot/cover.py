@@ -53,6 +53,9 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     if model.find('mrbond.airer') >= 0:
         entity = MrBondAirerProEntity(config)
         entities.append(entity)
+    elif model.find('airer') >= 0:
+        entity = MijiaAirerEntity(config)
+        entities.append(entity)
     elif model.find('curtain') >= 0:
         entity = LumiCurtainEntity(config)
         entities.append(entity)
@@ -212,6 +215,81 @@ class LumiCurtainEntity(MiioCoverEntity, MiotEntity, CoverEntity):
         if await self.async_set_property('motor_control', 0):
             self._is_closing = False
             self._is_opening = False
+
+
+class MijiaAirerEntity(MiotEntity, MiioCoverEntity):
+    mapping = {
+        # http://miot-spec.org/miot-spec-v2/instance?type=urn:miot-spec-v2:device:airer:0000A00D:hyd-znlyj1:1
+        'fault':            {'siid': 2, 'piid': 1},  #
+        'motor_control':    {'siid': 2, 'piid': 2},  # 0:Pause 1:Up 2:Down, writeOnly
+        'current_position': {'siid': 2, 'piid': 3},  # [0, 2], step 1
+        'status':           {'siid': 2, 'piid': 4},  # 0:Stopped 1:Up 2:Down 3:Pause
+        'light':            {'siid': 3, 'piid': 1},  # bool
+    }
+
+    def __init__(self, config):
+        name = config[CONF_NAME]
+        host = config[CONF_HOST]
+        token = config[CONF_TOKEN]
+        _LOGGER.info('Initializing with host %s (token %s...)', host, token[:5])
+
+        self._device = MiotDevice(self.mapping, host, token)
+        self._add_entities = config.get('add_entities') or {}
+        super().__init__(name, self._device)
+        self._device_class = DEVICE_CLASS_DAMPER
+        self._supported_features = SUPPORT_OPEN | SUPPORT_CLOSE | SUPPORT_STOP
+        self._state_attrs.update({'entity_class': self.__class__.__name__})
+        self._subs = {}
+
+    async def async_update(self):
+        await super().async_update()
+        if self._available:
+            attrs = self._state_attrs
+            self._position = 100 - round(attrs.get('current_position') or 0, -1) * 50
+            self._is_opening = int(attrs.get('status') or 0) == 1
+            self._is_closing = int(attrs.get('status') or 0) == 2
+            self._closed = self._position <= 0
+            self._state_attrs.update({
+                'stopped': bool(not self._is_opening and not self._is_closing),
+            })
+
+            add_lights = self._add_entities.get('light', None)
+            if 'light' in self._subs:
+                self._subs['light'].update()
+            elif add_lights and 'light' in attrs:
+                self._subs['light'] = LightSubEntity(self, 'light')
+                add_lights([self._subs['light']])
+
+    def open_cover(self, **kwargs):
+        return self._device.set_property('motor_control', 1)
+
+    async def async_open_cover(self, **kwargs):
+        if await self.async_set_property('motor_control', 1):
+            self._state_attrs['status'] = 1
+            self._is_opening = True
+            self._set_position = 100
+
+    def close_cover(self, **kwargs):
+        return self._device.set_property('motor_control', 2)
+
+    async def async_close_cover(self, **kwargs):
+        if await self.async_set_property('motor_control', 2):
+            self._state_attrs['status'] = 2
+            self._is_closing = True
+            self._set_position = 0
+
+    async def async_stop_cover(self, **kwargs):
+        if await self.async_set_property('motor_control', 0):
+            self._is_closing = False
+            self._is_opening = False
+
+    def turn_on_light(self):
+        if self._device.set_property('light', True):
+            self._state_attrs['light'] = True
+
+    def turn_off_light(self):
+        if self._device.set_property('light', False):
+            self._state_attrs['light'] = False
 
 
 class MrBondAirerProEntity(MiioCoverEntity):
