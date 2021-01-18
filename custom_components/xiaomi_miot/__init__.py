@@ -41,6 +41,7 @@ SUPPORTED_DOMAINS = [
     "fan",
     "climate",
     "cover",
+    "humidifier",
 ]
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
