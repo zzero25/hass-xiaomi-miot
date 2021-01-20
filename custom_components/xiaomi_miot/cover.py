@@ -261,7 +261,7 @@ class MijiaAirerEntity(MiotEntity, MiioCoverEntity):
                 add_lights([self._subs['light']])
 
     def open_cover(self, **kwargs):
-        return self._device.set_property('motor_control', 1)
+        return self.set_property('motor_control', 1)
 
     async def async_open_cover(self, **kwargs):
         if await self.async_set_property('motor_control', 1):
@@ -270,7 +270,7 @@ class MijiaAirerEntity(MiotEntity, MiioCoverEntity):
             self._set_position = 100
 
     def close_cover(self, **kwargs):
-        return self._device.set_property('motor_control', 2)
+        return self.set_property('motor_control', 2)
 
     async def async_close_cover(self, **kwargs):
         if await self.async_set_property('motor_control', 2):
@@ -284,11 +284,11 @@ class MijiaAirerEntity(MiotEntity, MiioCoverEntity):
             self._is_opening = False
 
     def turn_on_light(self):
-        if self._device.set_property('light', True):
+        if self.set_property('light', True):
             self._state_attrs['light'] = True
 
     def turn_off_light(self):
-        if self._device.set_property('light', False):
+        if self.set_property('light', False):
             self._state_attrs['light'] = False
 
 
