@@ -128,7 +128,7 @@ class MiioCoverEntity(MiioEntity, CoverEntity):
         })
 
 
-class LumiCurtainEntity(MiioCoverEntity, MiotEntity, CoverEntity):
+class LumiCurtainEntity(MiotEntity, MiioCoverEntity):
     mapping = {
         # http://miot-spec.org/miot-spec-v2/instance?type=urn:miot-spec-v2:device:curtain:0000A00C:lumi-hagl05:1
         'motor_control':    {'siid': 2, 'piid': 2},  # 0:Pause 1:Open 2:Close 3:auto, writeOnly
@@ -159,9 +159,9 @@ class LumiCurtainEntity(MiioCoverEntity, MiotEntity, CoverEntity):
         await super().async_update()
         if self._available:
             attrs = self._state_attrs
-            self._position = round(attrs.get('current_position', -1))
-            self._is_opening = int(attrs.get('status', 0)) == 1
-            self._is_closing = int(attrs.get('status', 0)) == 2
+            self._position = round(attrs.get('current_position') or 0, -1)
+            self._is_opening = int(attrs.get('status') or 0) == 1
+            self._is_closing = int(attrs.get('status') or 0) == 2
             self._closed = self._position <= 0
             self._state_attrs.update({
                 'position': self._position,
@@ -173,7 +173,7 @@ class LumiCurtainEntity(MiioCoverEntity, MiotEntity, CoverEntity):
                 self._unsub_listener_cover = None
 
     def open_cover(self, **kwargs):
-        return self._device.set_property('motor_control', 1)
+        return self.set_property('motor_control', 1)
 
     async def async_open_cover(self, **kwargs):
         if self._position is None or self._position >= 99:
@@ -187,7 +187,7 @@ class LumiCurtainEntity(MiioCoverEntity, MiotEntity, CoverEntity):
             self.async_write_ha_state()
 
     def close_cover(self, **kwargs):
-        return self._device.set_property('motor_control', 2)
+        return self.set_property('motor_control', 2)
 
     async def async_close_cover(self, **kwargs):
         if self.is_closed or self._position is None:
